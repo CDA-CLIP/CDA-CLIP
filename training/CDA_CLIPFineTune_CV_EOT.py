@@ -15,6 +15,24 @@ Run `python count_cda_params.py` (no torch required) for a static
 parameter audit of the CDA module.
 """
 
+# ---------------------------------------------------------------------------
+# Repository-local import bootstrap
+# ---------------------------------------------------------------------------
+import sys as _sys
+from pathlib import Path as _Path
+
+_REPO_ROOT = _Path(__file__).resolve().parents[1]
+for _local_path in (
+    _REPO_ROOT,
+    _REPO_ROOT / "training",
+    _REPO_ROOT / "evaluation",
+    _REPO_ROOT / "analysis",
+):
+    _local_path = str(_local_path)
+    if _local_path not in _sys.path:
+        _sys.path.insert(0, _local_path)
+
+
 import os
 import argparse
 import numpy as np

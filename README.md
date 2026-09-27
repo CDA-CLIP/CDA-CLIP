@@ -56,43 +56,43 @@ Cross-Domain Attention (CDA) module and modality-specific projection heads.
 
 ### Main scripts
 
-`CDA_CLIPFineTune_CV_EOT.py`
+`training/CDA_CLIPFineTune_CV_EOT.py`
 Source-domain cross-validation with frozen CLIP and EOT text pooling.
 
-`train_original_eot_eval_all4.py`
+`training/train_original_eot_eval_all4.py`
 Final ViT-B/16 CDA-CLIP training/evaluation pathway.
 
-`train_original_eot_eval_all4_rn101.py`
+`training/train_original_eot_eval_all4_rn101.py`
 Matched RN101 CDA-CLIP training pathway.
 
-`eval_eot_fullscope_shared.py`
+`evaluation/eval_eot_fullscope_shared.py`
 Unified full-scope external evaluation for the ViT-B/16 setting.
 
-`eval_rn101_fullscope_clean.py`
+`evaluation/eval_rn101_fullscope_clean.py`
 Matched RN101 full-scope evaluation and prompt-ensemble evaluation.
 
-`domain_gap_quantitative.py`
+`analysis/domain_gap_quantitative.py`
 Quantitative natural-to-medical feature-space analysis using frozen CLIP
 features, MMD, and a domain-classification probe.
 
-`domain_gap_verify.py`
+`analysis/domain_gap_verify.py`
 Independent NumPy-based verification of the domain-gap analysis.
 
 ### CDA-MedCLIP transfer
 
-`train_cda_medclip_gamma_cv.py`
+`training/train_cda_medclip_gamma_cv.py`
 Source-domain gamma cross-validation.
 
-`rank_cda_medclip_gamma_pairwise_val.py`
+`analysis/rank_cda_medclip_gamma_pairwise_val.py`
 True-pairwise source-validation ranking used for gamma selection.
 
-`train_cda_medclip_gamma_full.py`
+`training/train_cda_medclip_gamma_full.py`
 Final CDA-MedCLIP training for the residual-strength analysis.
 
-`eval_cda_medclip_gamma_full.py`
+`evaluation/eval_cda_medclip_gamma_full.py`
 Gamma sensitivity evaluation.
 
-`eval_cda_medclip_gamma_fullscope.py`
+`evaluation/eval_cda_medclip_gamma_fullscope.py`
 Unified full-scope CDA-MedCLIP evaluation.
 
 ### Baseline reproduction
@@ -110,4 +110,23 @@ also be supplied with the environment variable:
 
 Model checkpoints and raw experimental outputs are intentionally excluded
 from version control.
+
+## Repository structure
+
+CDA-CLIP/
+├── CDA.py
+├── CDA_CLIPFineTune.py
+├── dataloader.py
+├── parameters.py
+├── utils.py
+├── PrepareDatasets.py
+├── GradCAM_CDA_CLIP.py
+├── count_cda_params.py
+├── training/
+├── evaluation/
+├── analysis/
+└── baseline_suite/
+
+The repository root contains the core CDA implementation and original project utilities.
+Revision-specific scripts are grouped by training, evaluation, analysis, and baseline reproduction.
 

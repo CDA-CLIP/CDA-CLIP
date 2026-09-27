@@ -3,7 +3,7 @@ import csv
 from pathlib import Path
 
 ROOT = Path(
-    "/scratch/joycewyr_root/joycewyr0/dongnid/training_practice"
+    str(Path(__file__).resolve().parents[1])
 )
 
 OUTDIR = (

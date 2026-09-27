@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 PROJECT = Path(
-    "/scratch/joycewyr_root/joycewyr0/dongnid/training_practice"
+    str(Path(__file__).resolve().parents[1])
 )
 
 IMG_EXT = {".jpg", ".jpeg", ".png", ".bmp"}

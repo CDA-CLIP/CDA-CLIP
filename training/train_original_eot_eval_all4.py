@@ -1,3 +1,21 @@
+
+# ---------------------------------------------------------------------------
+# Repository-local import bootstrap
+# ---------------------------------------------------------------------------
+import sys as _sys
+from pathlib import Path as _Path
+
+_REPO_ROOT = _Path(__file__).resolve().parents[1]
+for _local_path in (
+    _REPO_ROOT,
+    _REPO_ROOT / "training",
+    _REPO_ROOT / "evaluation",
+    _REPO_ROOT / "analysis",
+):
+    _local_path = str(_local_path)
+    if _local_path not in _sys.path:
+        _sys.path.insert(0, _local_path)
+
 import sys
 import csv
 import random
@@ -28,13 +46,13 @@ MIMIC_ROOT = ROOT / "data/MIMIC_CXR/raw"
 CKPT = (
     ROOT
     / "checkpoints"
-    / "cda_original_eot753_rn101_lr2e4_wd5_bs16_seed42.pt"
+    / "cda_original_eot753_vitb16_lr2e4_wd5_bs16_seed42.pt"
 )
 
 OUT_CSV = (
     ROOT
     / "results"
-    / "original_eot_rn101_all4_results.csv"
+    / "original_eot_all4_results.csv"
 )
 
 SEED = 42
@@ -127,110 +145,55 @@ class SourceDataset(Dataset):
 # ============================================================
 
 @torch.no_grad()
-def encode_image_tokens(model, image: torch.Tensor) -> torch.Tensor:
-    """
-    Return frozen CLIP visual tokens in 512-d shared space.
-
-    ViT:
-        patch/CLS tokens -> visual.proj -> 512 d
-
-    ModifiedResNet:
-        layer4 spatial tokens + global token ->
-        frozen CLIP attention-pool projections -> 512 d
-    """
+def encode_image_tokens(model, image):
     visual = model.visual
 
-    # =========================
-    # ViT branch
-    # =========================
-    if hasattr(visual, "transformer"):
-        x = visual.conv1(image.type(model.dtype))
-        x = x.reshape(
-            x.shape[0], x.shape[1], -1
-        ).permute(0, 2, 1)
+    x = image.type(visual.conv1.weight.dtype)
+    x = visual.conv1(x)
 
-        cls = (
-            visual.class_embedding.to(x.dtype)
-            + torch.zeros(
-                x.shape[0],
-                1,
-                x.shape[-1],
-                dtype=x.dtype,
-                device=x.device,
-            )
-        )
+    x = x.reshape(
+        x.shape[0],
+        x.shape[1],
+        -1
+    )
 
-        x = torch.cat([cls, x], dim=1)
-        x = x + visual.positional_embedding.to(x.dtype)
-        x = visual.ln_pre(x)
+    x = x.permute(0, 2, 1)
 
-        x = x.permute(1, 0, 2)
-        x = visual.transformer(x)
-        x = x.permute(1, 0, 2)
-
-        x = visual.ln_post(x)
-
-        if visual.proj is not None:
-            x = x @ visual.proj
-
-    # =========================
-    # RN50 / RN101 branch
-    # =========================
-    else:
-        def stem(z):
-            z = visual.relu1(visual.bn1(visual.conv1(z)))
-            z = visual.relu2(visual.bn2(visual.conv2(z)))
-            z = visual.relu3(visual.bn3(visual.conv3(z)))
-            z = visual.avgpool(z)
-            return z
-
-        x = image.type(model.dtype)
-
-        x = stem(x)
-        x = visual.layer1(x)
-        x = visual.layer2(x)
-        x = visual.layer3(x)
-        x = visual.layer4(x)
-
-        # B,C,H,W -> B,HW,C
-        x = x.flatten(2).permute(0, 2, 1)
-
-        # Global token + spatial tokens
-        cls = x.mean(dim=1, keepdim=True)
-        x = torch.cat([cls, x], dim=1)
-
-        pos = visual.attnpool.positional_embedding.to(
+    cls = (
+        visual.class_embedding
+        .to(x.dtype)
+        + torch.zeros(
+            x.shape[0],
+            1,
+            x.shape[-1],
             dtype=x.dtype,
             device=x.device,
         )
+    )
 
-        if x.shape[1] != pos.shape[0]:
-            raise RuntimeError(
-                f"RN token/position mismatch: "
-                f"tokens={tuple(x.shape)}, "
-                f"pos={tuple(pos.shape)}"
-            )
+    x = torch.cat(
+        [cls, x],
+        dim=1
+    )
 
-        x = x + pos.unsqueeze(0)
+    x = (
+        x
+        + visual.positional_embedding
+        .to(x.dtype)
+    )
 
-        # RN101 layer4 tokens are 2048-d.
-        # Reuse frozen CLIP attention-pool projections,
-        # instead of introducing a newly trained projection.
-        x = visual.attnpool.v_proj(x)
-        x = visual.attnpool.c_proj(x)
+    x = visual.ln_pre(x)
 
-    if x.ndim != 3:
-        raise RuntimeError(
-            f"Visual token tensor must be 3-D, got {tuple(x.shape)}"
-        )
+    x = x.permute(1, 0, 2)
+    x = visual.transformer(x)
+    x = x.permute(1, 0, 2)
 
-    if x.shape[-1] != 512:
-        raise RuntimeError(
-            f"Visual tokens must be 512-d before CDA, "
-            f"got {tuple(x.shape)}"
-        )
+    x = visual.ln_post(x)
 
-    return x
+    if visual.proj is not None:
+        x = x @ visual.proj
+
+    return x.float()
 
 
 @torch.no_grad()
@@ -269,13 +232,6 @@ def cda_forward_eot(
     text_tokens
 ):
 
-    # RN101_DTYPE_DIM_GUARD
-    h_v = h_v.float()
-    h_t = h_t.float()
-    if h_v.shape[-1] != 512 or h_t.shape[-1] != 512:
-        raise RuntimeError(
-            f'CDA expects 512-d tokens: visual={tuple(h_v.shape)}, text={tuple(h_t.shape)}'
-        )
     for layer in cda.layers:
         h_v, h_t = layer(
             h_v,
@@ -327,7 +283,7 @@ def train():
     print("Device:", device)
 
     clip_model, preprocess = clip.load(
-        "RN101",
+        "ViT-B/16",
         device=device,
         jit=False
     )
@@ -485,7 +441,7 @@ def train():
                 cda.state_dict(),
 
             "vision_encoder":
-                "RN101",
+                "ViT-B/16",
 
             "num_cda_layers":
                 1,
