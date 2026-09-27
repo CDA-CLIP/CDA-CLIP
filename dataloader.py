@@ -39,7 +39,7 @@ class CustomedMedicalData_MedCLIP(Dataset):
                 img_path = line.split('^')[0]
                 label = (line.split('^')[1]).strip()
                 self.pure_labels.append(label)
-                if('MIMICGAZE' in data_root):
+                if('MIMIC' in data_root.upper()):
                     label = label
                 else:
                     label = "a figure of " + label
@@ -86,14 +86,14 @@ class CustomedMedicalData(Dataset):
                     heatmap_path = (line.split('^')[2]).strip()
                     self.heat_maps.append(heatmap_path)
                 self.pure_labels.append(label)
-                if('MIMICGAZE' in data_root):
+                if('MIMIC' in data_root.upper()):
                     label = label
                 else:
                     label = "a figure of " + label
                 self.samples.append(img_path)
                 self.sam_labels.append(label)
         # 转换为token
-        self.tokens = clip.tokenize(self.sam_labels, context_length = 512, truncate=True)
+        self.tokens = clip.tokenize(self.sam_labels, context_length=77, truncate=True)
 
     def __len__(self):
         return len(self.samples)
